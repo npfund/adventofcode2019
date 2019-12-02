@@ -4,6 +4,7 @@ use std::io::Read;
 
 fn main() {
     part1();
+    part2();
 }
 
 fn part1() {
@@ -19,6 +20,30 @@ fn part1() {
     *memory.get_mut(&2).unwrap() = 2;
 
     println!("{}", execute(memory).get(&0).unwrap());
+}
+
+fn part2() {
+    let mut input = String::new();
+    File::open("input.txt")
+        .unwrap()
+        .read_to_string(&mut input)
+        .unwrap();
+
+    let memory = ingest(input.trim_end());
+
+    for noun in 0..99 {
+        for verb in 0..99 {
+            let mut current_memory = memory.clone();
+
+            *current_memory.get_mut(&1).unwrap() = noun;
+            *current_memory.get_mut(&2).unwrap() = verb;
+
+            if *execute(current_memory).get(&0).unwrap() == 19690720 {
+                println!("{}{}", noun, verb);
+                break;
+            }
+        }
+    }
 }
 
 fn ingest(input: &str) -> HashMap<usize, usize> {
