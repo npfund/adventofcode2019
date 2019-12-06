@@ -24,6 +24,7 @@ fn main() {
         .unwrap();
 
     part1();
+    part2();
 }
 
 fn part1() {
@@ -34,6 +35,16 @@ fn part1() {
         .unwrap();
 
     execute(ingest(&input), Some(1));
+}
+
+fn part2() {
+    let mut input = String::new();
+    File::open("input.txt")
+        .unwrap()
+        .read_to_string(&mut input)
+        .unwrap();
+
+    execute(ingest(&input), Some(5));
 }
 
 fn ingest(input: &str) -> HashMap<usize, i32> {
@@ -82,6 +93,48 @@ fn execute(mut memory: HashMap<usize, i32>, input: Option<i32>) -> HashMap<usize
                 debug!("{}: output {}", op, value);
                 println!("{}", value);
                 length = 2;
+            }
+            5 => {
+                let value = get_value(&memory, counter + 1, opcode.get_mode(0));
+                let destination = get_value(&memory, counter + 2, opcode.get_mode(1));
+
+                debug!("{}: if {} != 0 goto {}", op, value, destination);
+                if value != 0 {
+                    length = 0;
+                    counter = destination as usize;
+                } else {
+                    length = 3;
+                }
+            }
+            6 => {
+                let value = get_value(&memory, counter + 1, opcode.get_mode(0));
+                let destination = get_value(&memory, counter + 2, opcode.get_mode(1));
+
+                debug!("{}: if {} == 0 goto {}", op, value, destination);
+                if value == 0 {
+                    length = 0;
+                    counter = destination as usize;
+                } else {
+                    length = 3;
+                }
+            }
+            7 => {
+                let lhs = get_value(&memory, counter + 1, opcode.get_mode(0));
+                let rhs = get_value(&memory, counter + 2, opcode.get_mode(1));
+                let destination = get_address(&memory, counter + 3);
+
+                debug!("{} {} {}: if {} < {} set position {} to 1 else 0", op, get_address(&memory, counter + 1), get_address(&memory, counter + 2), lhs, rhs, destination);
+                memory.insert(destination, if lhs < rhs { 1 } else { 0 });
+                length = 4;
+            }
+            8 => {
+                let lhs = get_value(&memory, counter + 1, opcode.get_mode(0));
+                let rhs = get_value(&memory, counter + 2, opcode.get_mode(1));
+                let destination = get_address(&memory, counter + 3);
+
+                debug!("{} {} {}: if {} == {} set position {} to 1 else 0", op, get_address(&memory, counter + 1), get_address(&memory, counter + 2), lhs, rhs, destination);
+                memory.insert(destination, if lhs == rhs { 1 } else { 0 });
+                length = 4;
             }
             99 | _ => break,
         }
