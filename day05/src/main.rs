@@ -1,8 +1,8 @@
+use log::debug;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::process;
-use log::debug;
 
 fn main() {
     fern::Dispatch::new()
@@ -50,7 +50,10 @@ fn part2() {
 fn ingest(input: &str) -> HashMap<usize, i32> {
     input
         .split(',')
-        .map(|x| match x.trim().parse() { Ok(int) => int, Err(e) => panic!("{}, {}", e, x) })
+        .map(|x| match x.trim().parse() {
+            Ok(int) => int,
+            Err(e) => panic!("{}, {}", e, x),
+        })
         .enumerate()
         .collect()
 }
@@ -67,7 +70,15 @@ fn execute(mut memory: HashMap<usize, i32>, input: Option<i32>) -> HashMap<usize
                 let rhs = get_value(&memory, counter + 2, opcode.get_mode(1));
                 let destination = get_address(&memory, counter + 3);
 
-                debug!("{} {} {}: set position {} to {} + {}", op, get_address(&memory, counter + 1), get_address(&memory, counter + 2), destination, lhs, rhs);
+                debug!(
+                    "{} {} {}: set position {} to {} + {}",
+                    op,
+                    get_address(&memory, counter + 1),
+                    get_address(&memory, counter + 2),
+                    destination,
+                    lhs,
+                    rhs
+                );
                 memory.insert(destination, lhs + rhs);
                 length = 4;
             }
@@ -76,7 +87,15 @@ fn execute(mut memory: HashMap<usize, i32>, input: Option<i32>) -> HashMap<usize
                 let rhs = get_value(&memory, counter + 2, opcode.get_mode(1));
                 let destination = get_address(&memory, counter + 3);
 
-                debug!("{} {} {}: set position {} to {} * {}", op, get_address(&memory, counter + 1), get_address(&memory, counter + 2), destination, lhs, rhs);
+                debug!(
+                    "{} {} {}: set position {} to {} * {}",
+                    op,
+                    get_address(&memory, counter + 1),
+                    get_address(&memory, counter + 2),
+                    destination,
+                    lhs,
+                    rhs
+                );
                 memory.insert(destination, lhs * rhs);
                 length = 4;
             }
@@ -123,7 +142,15 @@ fn execute(mut memory: HashMap<usize, i32>, input: Option<i32>) -> HashMap<usize
                 let rhs = get_value(&memory, counter + 2, opcode.get_mode(1));
                 let destination = get_address(&memory, counter + 3);
 
-                debug!("{} {} {}: if {} < {} set position {} to 1 else 0", op, get_address(&memory, counter + 1), get_address(&memory, counter + 2), lhs, rhs, destination);
+                debug!(
+                    "{} {} {}: if {} < {} set position {} to 1 else 0",
+                    op,
+                    get_address(&memory, counter + 1),
+                    get_address(&memory, counter + 2),
+                    lhs,
+                    rhs,
+                    destination
+                );
                 memory.insert(destination, if lhs < rhs { 1 } else { 0 });
                 length = 4;
             }
@@ -132,7 +159,15 @@ fn execute(mut memory: HashMap<usize, i32>, input: Option<i32>) -> HashMap<usize
                 let rhs = get_value(&memory, counter + 2, opcode.get_mode(1));
                 let destination = get_address(&memory, counter + 3);
 
-                debug!("{} {} {}: if {} == {} set position {} to 1 else 0", op, get_address(&memory, counter + 1), get_address(&memory, counter + 2), lhs, rhs, destination);
+                debug!(
+                    "{} {} {}: if {} == {} set position {} to 1 else 0",
+                    op,
+                    get_address(&memory, counter + 1),
+                    get_address(&memory, counter + 2),
+                    lhs,
+                    rhs,
+                    destination
+                );
                 memory.insert(destination, if lhs == rhs { 1 } else { 0 });
                 length = 4;
             }
@@ -148,7 +183,7 @@ fn execute(mut memory: HashMap<usize, i32>, input: Option<i32>) -> HashMap<usize
 fn get_value(memory: &HashMap<usize, i32>, address: usize, mode: ParameterMode) -> i32 {
     let immediate = match memory.get(&address) {
         Some(v) => v,
-        None => { panic!("unknown address {}", address) }
+        None => panic!("unknown address {}", address),
     };
 
     match mode {
@@ -170,12 +205,15 @@ enum ParameterMode {
 #[derive(Clone, Debug)]
 struct Opcode {
     operation: usize,
-    parameter_modes: Vec<ParameterMode>
+    parameter_modes: Vec<ParameterMode>,
 }
 
 impl Opcode {
     fn get_mode(&self, parameter: usize) -> ParameterMode {
-        *self.parameter_modes.get(parameter).unwrap_or(&ParameterMode::Position)
+        *self
+            .parameter_modes
+            .get(parameter)
+            .unwrap_or(&ParameterMode::Position)
     }
 }
 
@@ -187,11 +225,15 @@ impl From<i32> for Opcode {
 
         Opcode {
             operation: op.parse().unwrap(),
-            parameter_modes: params.chars().rev().map(|c| match c.to_digit(10).unwrap() {
-                0 => ParameterMode::Position,
-                1 => ParameterMode::Immediate,
-                _ => panic!(),
-            }).collect()
+            parameter_modes: params
+                .chars()
+                .rev()
+                .map(|c| match c.to_digit(10).unwrap() {
+                    0 => ParameterMode::Position,
+                    1 => ParameterMode::Immediate,
+                    _ => panic!(),
+                })
+                .collect(),
         }
     }
 }
