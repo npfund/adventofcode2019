@@ -1,5 +1,5 @@
 use log::debug;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 use std::io::Read;
 use std::process;
@@ -24,6 +24,7 @@ fn main() {
         .unwrap();
 
     part1();
+    part2();
 }
 
 fn part1() {
@@ -90,6 +91,106 @@ fn part1() {
     println!("{} {:?}", max, sequence);
 }
 
+fn part2() {
+    let mut input = String::new();
+    File::open("input.txt")
+        .unwrap()
+        .read_to_string(&mut input)
+        .unwrap();
+
+    let memory = ingest(&input);
+
+    let mut permutations =  Vec::new();
+    for phase1 in 5..10 {
+        for phase2 in 5..10 {
+            if phase2 == phase1 {
+                continue;
+            }
+            for phase3 in 5..10 {
+                if phase3 == phase2 || phase3 == phase1 {
+                    continue;
+                }
+                for phase4 in 5..10 {
+                    if phase4 == phase3 || phase4 == phase2 || phase4 == phase1 {
+                        continue;
+                    }
+                    for phase5 in 5..10 {
+                        if phase5 == phase4
+                            || phase5 == phase3
+                            || phase5 == phase2
+                            || phase5 == phase1
+                        {
+                            continue;
+                        }
+                        permutations.push((phase1, phase2, phase3, phase4, phase5));
+                    }
+                }
+            }
+        }
+    }
+
+    let mut max = 0;
+    let mut sequence = (0, 0, 0, 0, 0);
+
+    for (phase1, phase2, phase3, phase4, phase5) in permutations.into_iter() {
+        let mut amp1 = Vm::new(memory.clone());
+        let mut amp2 = Vm::new(memory.clone());
+        let mut amp3 = Vm::new(memory.clone());
+        let mut amp4 = Vm::new(memory.clone());
+        let mut amp5 = Vm::new(memory.clone());
+
+        amp1.add_input(phase1);
+        amp1.add_input(0);
+        amp2.add_input(phase2);
+        amp3.add_input(phase3);
+        amp4.add_input(phase4);
+        amp5.add_input(phase5);
+
+        loop {
+            match amp1.execute() {
+                Some(next) => {
+                    amp2.add_input(next)
+                }
+                None => break
+            }
+            match amp2.execute() {
+                Some(next) => {
+                    amp3.add_input(next)
+                }
+                None => break
+            }
+            match amp3.execute() {
+                Some(next) => {
+                    amp4.add_input(next)
+                }
+                None => break
+            }
+            match amp4.execute() {
+                Some(next) => {
+                    amp5.add_input(next)
+                }
+                None => break
+            }
+            match amp5.execute() {
+                Some(next) => {
+                    amp1.add_input(next)
+                }
+                None => break
+            }
+        }
+
+        let thruster_output = amp1.input.pop_back().expect("missing thruster output");
+
+        if thruster_output > max {
+            max = thruster_output;
+            sequence = (phase1, phase2, phase3, phase4, phase5);
+        }
+        debug!("sequence: {:?}", (phase1, phase2, phase3, phase4, phase5));
+    }
+
+    println!("{} {:?}", max, sequence);
+}
+
 fn ingest(input: &str) -> HashMap<usize, i32> {
     input
         .split(',')
@@ -151,7 +252,7 @@ fn execute(
             3 => {
                 let destination = get_address(&memory, counter + 1);
 
-                let arg = input.pop().unwrap();
+                let arg = input.pop().expect("missing input");
                 debug!("{}: set position {} to {}", op, destination, arg);
                 memory.insert(destination, arg);
                 length = 2;
@@ -290,3 +391,149 @@ impl From<i32> for Opcode {
         }
     }
 }
+
+struct Vm {
+    memory: HashMap<usize, i32>,
+    pointer: usize,
+    input: VecDeque<i32>,
+}
+
+impl Vm {
+    pub fn new(memory: HashMap<usize, i32>) -> Self {
+        Vm {
+            memory,
+            pointer: 0,
+            input: VecDeque::new(),
+        }
+    }
+
+    pub fn add_input(&mut self, input: i32) {
+        self.input.push_back(input);
+    }
+
+    pub fn execute(&mut self) -> Option<i32> {
+        while let Some(&op) = self.memory.get(&self.pointer) {
+            let opcode = Opcode::from(op);
+
+            let length;
+            match opcode.operation {
+                1 => {
+                    let lhs = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+                    let rhs = get_value(&self.memory, self.pointer + 2, opcode.get_mode(1));
+                    let destination = get_address(&self.memory, self.pointer + 3);
+
+                    debug!(
+                        "{} {} {}: set position {} to {} + {}",
+                        op,
+                        get_address(&self.memory, self.pointer + 1),
+                        get_address(&self.memory, self.pointer + 2),
+                        destination,
+                        lhs,
+                        rhs
+                    );
+                    self.memory.insert(destination, lhs + rhs);
+                    length = 4;
+                }
+                2 => {
+                    let lhs = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+                    let rhs = get_value(&self.memory, self.pointer + 2, opcode.get_mode(1));
+                    let destination = get_address(&self.memory, self.pointer + 3);
+
+                    debug!(
+                        "{} {} {}: set position {} to {} * {}",
+                        op,
+                        get_address(&self.memory, self.pointer + 1),
+                        get_address(&self.memory, self.pointer + 2),
+                        destination,
+                        lhs,
+                        rhs
+                    );
+                    self.memory.insert(destination, lhs * rhs);
+                    length = 4;
+                }
+                3 => {
+                    let destination = get_address(&self.memory, self.pointer + 1);
+
+                    let arg = self.input.pop_front().expect("missing input");
+                    debug!("{}: set position {} to {}", op, destination, arg);
+                    self.memory.insert(destination, arg);
+                    length = 2;
+                }
+                4 => {
+                    let value = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+
+                    debug!("{}: output {}", op, value);
+                    self.pointer += 2;
+                    return Some(value);
+                }
+                5 => {
+                    let value = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+                    let destination = get_value(&self.memory, self.pointer + 2, opcode.get_mode(1));
+
+                    debug!("{}: if {} != 0 goto {}", op, value, destination);
+                    if value != 0 {
+                        length = 0;
+                        self.pointer = destination as usize;
+                    } else {
+                        length = 3;
+                    }
+                }
+                6 => {
+                    let value = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+                    let destination = get_value(&self.memory, self.pointer + 2, opcode.get_mode(1));
+
+                    debug!("{}: if {} == 0 goto {}", op, value, destination);
+                    if value == 0 {
+                        length = 0;
+                        self.pointer = destination as usize;
+                    } else {
+                        length = 3;
+                    }
+                }
+                7 => {
+                    let lhs = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+                    let rhs = get_value(&self.memory, self.pointer + 2, opcode.get_mode(1));
+                    let destination = get_address(&self.memory, self.pointer + 3);
+
+                    debug!(
+                        "{} {} {}: if {} < {} set position {} to 1 else 0",
+                        op,
+                        get_address(&self.memory, self.pointer + 1),
+                        get_address(&self.memory, self.pointer + 2),
+                        lhs,
+                        rhs,
+                        destination
+                    );
+                    self.memory.insert(destination, if lhs < rhs { 1 } else { 0 });
+                    length = 4;
+                }
+                8 => {
+                    let lhs = get_value(&self.memory, self.pointer + 1, opcode.get_mode(0));
+                    let rhs = get_value(&self.memory, self.pointer + 2, opcode.get_mode(1));
+                    let destination = get_address(&self.memory, self.pointer + 3);
+
+                    debug!(
+                        "{} {} {}: if {} == {} set position {} to 1 else 0",
+                        op,
+                        get_address(&self.memory, self.pointer + 1),
+                        get_address(&self.memory, self.pointer + 2),
+                        lhs,
+                        rhs,
+                        destination
+                    );
+                    self.memory.insert(destination, if lhs == rhs { 1 } else { 0 });
+                    length = 4;
+                }
+                o => {
+                    debug!("{}: exiting", o);
+                    break;
+                }
+            }
+
+            self.pointer += length;
+        }
+
+        None
+    }
+}
+
