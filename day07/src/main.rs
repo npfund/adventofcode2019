@@ -100,7 +100,7 @@ fn part2() {
 
     let memory = ingest(&input);
 
-    let mut permutations =  Vec::new();
+    let mut permutations = Vec::new();
     for phase1 in 5..10 {
         for phase2 in 5..10 {
             if phase2 == phase1 {
@@ -148,34 +148,24 @@ fn part2() {
 
         loop {
             match amp1.execute() {
-                Some(next) => {
-                    amp2.add_input(next)
-                }
-                None => break
+                Some(next) => amp2.add_input(next),
+                None => break,
             }
             match amp2.execute() {
-                Some(next) => {
-                    amp3.add_input(next)
-                }
-                None => break
+                Some(next) => amp3.add_input(next),
+                None => break,
             }
             match amp3.execute() {
-                Some(next) => {
-                    amp4.add_input(next)
-                }
-                None => break
+                Some(next) => amp4.add_input(next),
+                None => break,
             }
             match amp4.execute() {
-                Some(next) => {
-                    amp5.add_input(next)
-                }
-                None => break
+                Some(next) => amp5.add_input(next),
+                None => break,
             }
             match amp5.execute() {
-                Some(next) => {
-                    amp1.add_input(next)
-                }
-                None => break
+                Some(next) => amp1.add_input(next),
+                None => break,
             }
         }
 
@@ -504,7 +494,8 @@ impl Vm {
                         rhs,
                         destination
                     );
-                    self.memory.insert(destination, if lhs < rhs { 1 } else { 0 });
+                    self.memory
+                        .insert(destination, if lhs < rhs { 1 } else { 0 });
                     length = 4;
                 }
                 8 => {
@@ -521,7 +512,8 @@ impl Vm {
                         rhs,
                         destination
                     );
-                    self.memory.insert(destination, if lhs == rhs { 1 } else { 0 });
+                    self.memory
+                        .insert(destination, if lhs == rhs { 1 } else { 0 });
                     length = 4;
                 }
                 o => {
@@ -536,4 +528,3 @@ impl Vm {
         None
     }
 }
-
