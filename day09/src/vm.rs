@@ -112,24 +112,17 @@ impl Vm {
         None
     }
 
-    fn get_entry_mut(&mut self, address: usize, mode: ParameterMode) -> &mut i128 {
-        if mode == ParameterMode::Immediate {
-            self.memory.entry(address).or_insert(0)
-        } else {
-            let source = self.memory.get(&address).unwrap_or(&0).clone();
-            let base = if mode == ParameterMode::Relative {
-                self.relative_base
-            } else {
-                0
-            };
-
-            self.get_entry_mut((source + base) as usize, ParameterMode::Immediate)
-        }
+    fn get_entry(&self, address: usize, mode: ParameterMode) -> i128 {
+        *self.memory.get(&self.resolve_address(address, mode)).unwrap_or(&0)
     }
 
-    fn get_entry(&self, address: usize, mode: ParameterMode) -> i128 {
+    fn get_entry_mut(&mut self, address: usize, mode: ParameterMode) -> &mut i128 {
+        self.memory.entry(self.resolve_address(address, mode)).or_insert(0)
+    }
+
+    fn resolve_address(&self, address: usize, mode: ParameterMode) -> usize {
         if mode == ParameterMode::Immediate {
-            *self.memory.get(&address).unwrap_or(&0)
+            address
         } else {
             let source = self.memory.get(&address).unwrap_or(&0).clone();
             let base = if mode == ParameterMode::Relative {
@@ -138,7 +131,7 @@ impl Vm {
                 0
             };
 
-            self.get_entry((source + base) as usize, ParameterMode::Immediate)
+            (source + base) as usize
         }
     }
 }
