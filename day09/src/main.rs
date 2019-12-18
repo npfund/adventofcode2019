@@ -19,11 +19,21 @@ fn main() {
         .unwrap();
 
     part1(&input);
+    part2(&input);
 }
 
 fn part1(input: &str) {
     let mut vm = Vm::from(input);
     vm.add_input(1);
+
+    while let Some(output) = vm.execute() {
+        println!("{}", output);
+    }
+}
+
+fn part2(input: &str) {
+    let mut vm = Vm::from(input);
+    vm.add_input(2);
 
     while let Some(output) = vm.execute() {
         println!("{}", output);
