@@ -1,25 +1,12 @@
 use crate::vm::Vm;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
-use std::process;
 
 mod vm;
 
 fn main() {
     fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{} {}.{} [{}:{}] #{} {}",
-                chrono::Utc::now().to_rfc3339(),
-                "INTCODE",
-                record.level(),
-                record.file().unwrap_or(""),
-                record.line().unwrap_or(0),
-                process::id(),
-                message,
-            ))
-        })
+        .format(|out, message, _record| out.finish(format_args!("{}", message,)))
         .level(log::LevelFilter::Debug)
         .chain(std::io::stdout())
         .apply()
@@ -35,6 +22,10 @@ fn main() {
 }
 
 fn part1(input: &str) {
+    let mut vm = Vm::from(input);
+    vm.add_input(1);
 
-    let vm = Vm::from(&input);
+    while let Some(output) = vm.execute() {
+        println!("{}", output);
+    }
 }

@@ -1,10 +1,10 @@
-use log::debug;
 use std::collections::{HashMap, VecDeque};
 
 pub struct Vm {
     memory: HashMap<usize, i128>,
     pointer: usize,
     input: VecDeque<i128>,
+    relative_base: i128,
 }
 
 impl Vm {
@@ -13,6 +13,7 @@ impl Vm {
             memory,
             pointer: 0,
             input: VecDeque::new(),
+            relative_base: 0,
         }
     }
 
@@ -27,59 +28,38 @@ impl Vm {
             let length;
             match opcode.operation {
                 1 => {
-                    let lhs = self.get_value(self.pointer + 1, opcode.get_mode(0));
-                    let rhs = self.get_value(self.pointer + 2, opcode.get_mode(1));
-                    let destination = self.get_address(self.pointer + 3);
+                    let lhs = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+                    let rhs = self.get_entry(self.pointer + 2, opcode.get_mode(1));
+                    let destination = self.get_entry_mut(self.pointer + 3, opcode.get_mode(2));
 
-                    debug!(
-                        "{} {} {}: set position {} to {} + {}",
-                        op,
-                        self.get_address(self.pointer + 1),
-                        self.get_address(self.pointer + 2),
-                        destination,
-                        lhs,
-                        rhs
-                    );
-                    self.memory.insert(destination, lhs + rhs);
+                    *destination = lhs + rhs;
                     length = 4;
                 }
                 2 => {
-                    let lhs = self.get_value(self.pointer + 1, opcode.get_mode(0));
-                    let rhs = self.get_value(self.pointer + 2, opcode.get_mode(1));
-                    let destination = self.get_address(self.pointer + 3);
+                    let lhs = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+                    let rhs = self.get_entry(self.pointer + 2, opcode.get_mode(1));
+                    let destination = self.get_entry_mut(self.pointer + 3, opcode.get_mode(2));
 
-                    debug!(
-                        "{} {} {}: set position {} to {} * {}",
-                        op,
-                        self.get_address(self.pointer + 1),
-                        self.get_address(self.pointer + 2),
-                        destination,
-                        lhs,
-                        rhs
-                    );
-                    self.memory.insert(destination, lhs * rhs);
+                    *destination = lhs * rhs;
                     length = 4;
                 }
                 3 => {
-                    let destination = self.get_address(self.pointer + 1);
-
                     let arg = self.input.pop_front().expect("missing input");
-                    debug!("{}: set position {} to {}", op, destination, arg);
-                    self.memory.insert(destination, arg);
+                    let destination = self.get_entry_mut(self.pointer + 1, opcode.get_mode(0));
+
+                    *destination = arg;
                     length = 2;
                 }
                 4 => {
-                    let value = self.get_value(self.pointer + 1, opcode.get_mode(0));
+                    let value = self.get_entry(self.pointer + 1, opcode.get_mode(0));
 
-                    debug!("{}: output {}", op, value);
                     self.pointer += 2;
                     return Some(value);
                 }
                 5 => {
-                    let value = self.get_value(self.pointer + 1, opcode.get_mode(0));
-                    let destination = self.get_value(self.pointer + 2, opcode.get_mode(1));
+                    let value = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+                    let destination = self.get_entry(self.pointer + 2, opcode.get_mode(1));
 
-                    debug!("{}: if {} != 0 goto {}", op, value, destination);
                     if value != 0 {
                         length = 0;
                         self.pointer = destination as usize;
@@ -88,10 +68,9 @@ impl Vm {
                     }
                 }
                 6 => {
-                    let value = self.get_value(self.pointer + 1, opcode.get_mode(0));
-                    let destination = self.get_value(self.pointer + 2, opcode.get_mode(1));
+                    let value = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+                    let destination = self.get_entry(self.pointer + 2, opcode.get_mode(1));
 
-                    debug!("{}: if {} == 0 goto {}", op, value, destination);
                     if value == 0 {
                         length = 0;
                         self.pointer = destination as usize;
@@ -100,43 +79,29 @@ impl Vm {
                     }
                 }
                 7 => {
-                    let lhs = self.get_value(self.pointer + 1, opcode.get_mode(0));
-                    let rhs = self.get_value(self.pointer + 2, opcode.get_mode(1));
-                    let destination = self.get_address(self.pointer + 3);
+                    let lhs = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+                    let rhs = self.get_entry(self.pointer + 2, opcode.get_mode(1));
+                    let destination = self.get_entry_mut(self.pointer + 3, opcode.get_mode(2));
 
-                    debug!(
-                        "{} {} {}: if {} < {} set position {} to 1 else 0",
-                        op,
-                        self.get_address(self.pointer + 1),
-                        self.get_address(self.pointer + 2),
-                        lhs,
-                        rhs,
-                        destination
-                    );
-                    self.memory
-                        .insert(destination, if lhs < rhs { 1 } else { 0 });
+                    *destination = if lhs < rhs { 1 } else { 0 };
                     length = 4;
                 }
                 8 => {
-                    let lhs = self.get_value(self.pointer + 1, opcode.get_mode(0));
-                    let rhs = self.get_value(self.pointer + 2, opcode.get_mode(1));
-                    let destination = self.get_address(self.pointer + 3);
+                    let lhs = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+                    let rhs = self.get_entry(self.pointer + 2, opcode.get_mode(1));
+                    let destination = self.get_entry_mut(self.pointer + 3, opcode.get_mode(2));
 
-                    debug!(
-                        "{} {} {}: if {} == {} set position {} to 1 else 0",
-                        op,
-                        self.get_address(self.pointer + 1),
-                        self.get_address(self.pointer + 2),
-                        lhs,
-                        rhs,
-                        destination
-                    );
-                    self.memory
-                        .insert(destination, if lhs == rhs { 1 } else { 0 });
+                    *destination = if lhs == rhs { 1 } else { 0 };
                     length = 4;
                 }
-                o => {
-                    debug!("{}: exiting", o);
+                9 => {
+                    let value = self.get_entry(self.pointer + 1, opcode.get_mode(0));
+
+                    self.relative_base += value;
+
+                    length = 2;
+                }
+                _ => {
                     break;
                 }
             }
@@ -147,29 +112,42 @@ impl Vm {
         None
     }
 
-    fn get_value(&self, address: usize, mode: ParameterMode) -> i128 {
-        let immediate = match self.memory.get(&address) {
-            Some(v) => v,
-            None => panic!("unknown address {}", address),
-        };
+    fn get_entry_mut(&mut self, address: usize, mode: ParameterMode) -> &mut i128 {
+        if mode == ParameterMode::Immediate {
+            self.memory.entry(address).or_insert(0)
+        } else {
+            let source = self.memory.get(&address).unwrap_or(&0).clone();
+            let base = if mode == ParameterMode::Relative {
+                self.relative_base
+            } else {
+                0
+            };
 
-        match mode {
-            ParameterMode::Position => {
-                self.get_value(*immediate as usize, ParameterMode::Immediate)
-            }
-            ParameterMode::Immediate => immediate.clone(),
+            self.get_entry_mut((source + base) as usize, ParameterMode::Immediate)
         }
     }
 
-    fn get_address(&self, address: usize) -> usize {
-        self.get_value(address, ParameterMode::Immediate) as usize
+    fn get_entry(&self, address: usize, mode: ParameterMode) -> i128 {
+        if mode == ParameterMode::Immediate {
+            *self.memory.get(&address).unwrap_or(&0)
+        } else {
+            let source = self.memory.get(&address).unwrap_or(&0).clone();
+            let base = if mode == ParameterMode::Relative {
+                self.relative_base
+            } else {
+                0
+            };
+
+            self.get_entry((source + base) as usize, ParameterMode::Immediate)
+        }
     }
 }
 
 impl<T: Into<String>> From<T> for Vm {
     fn from(raw: T) -> Self {
         Vm::new(
-            raw.into().split(',')
+            raw.into()
+                .split(',')
                 .map(|x| match x.trim().parse() {
                     Ok(int) => int,
                     Err(e) => panic!("{}, {}", e, x),
@@ -180,10 +158,11 @@ impl<T: Into<String>> From<T> for Vm {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 enum ParameterMode {
     Position,
     Immediate,
+    Relative,
 }
 
 #[derive(Clone, Debug)]
@@ -215,6 +194,7 @@ impl From<i128> for Opcode {
                 .map(|c| match c.to_digit(10).unwrap() {
                     0 => ParameterMode::Position,
                     1 => ParameterMode::Immediate,
+                    2 => ParameterMode::Relative,
                     _ => panic!(),
                 })
                 .collect(),
@@ -293,5 +273,21 @@ mod test {
         vm.execute();
 
         assert_eq!(*vm.memory.get(&3).unwrap(), 6);
+    }
+
+    #[test]
+    fn test_relative_address() {
+        let input = "109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99";
+
+        let mut vm = Vm::from(input);
+        vm.add_input(1234);
+
+        let mut output = Vec::new();
+        while let Some(out) = vm.execute() {
+            output.push(out);
+        }
+
+        let output = output.iter().map(|i| i.to_string()).collect::<Vec<String>>().join(",");
+        assert_eq!(output, input);
     }
 }
